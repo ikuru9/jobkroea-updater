@@ -40,25 +40,25 @@ export async function updateResume(config: Config) {
     console.log("로그인 버튼 클릭 및 로그인 시도 완료");
 
     // 5. 로그인 후 팝업 처리 (조건부)
-    const popups = context.pages();
-    if (popups.length > 1) {
-      const popup = popups.find(
-        (p) => p.url() !== "https://www.jobkorea.co.kr/Login/"
-      );
-      if (popup) {
-        await popup.waitForSelector('a[href*="나중에 변경"]', {
-          timeout: 5000,
-        });
-        await popup.click('a[href*="나중에 변경"]');
-        console.log("팝업 처리 완료");
+    // const popups = context.pages();
+    // if (popups.length > 1) {
+    //   const popup = popups.find(
+    //     (p) => p.url() !== "https://www.jobkorea.co.kr/Login/"
+    //   );
+    //   if (popup) {
+    //     await popup.waitForSelector('a[href*="나중에 변경"]', {
+    //       timeout: 5000,
+    //     });
+    //     await popup.click('a[href*="나중에 변경"]');
+    //     console.log("팝업 처리 완료");
 
-        // 팝업 내 다이얼로그 처리
-        popup.once("dialog", (dialog) => {
-          console.log(`Dialog message: ${dialog.message()}`);
-          dialog.dismiss().catch(() => {});
-        });
-      }
-    }
+    //     // 팝업 내 다이얼로그 처리
+    //     popup.once("dialog", (dialog) => {
+    //       console.log(`Dialog message: ${dialog.message()}`);
+    //       dialog.dismiss().catch(() => {});
+    //     });
+    //   }
+    // }
 
     // 6. 마이페이지로 이동
     await page.goto("https://www.jobkorea.co.kr/User/Mypage", {
