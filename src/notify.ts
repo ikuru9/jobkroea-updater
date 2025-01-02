@@ -1,5 +1,4 @@
 // src/notify.ts
-import axios from "axios";
 
 export async function sendTelegramMessage(
   token: string,
