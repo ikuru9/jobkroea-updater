@@ -60,6 +60,30 @@ export async function updateResume(config: Config) {
     //   }
     // }
 
+    // 5. 로그인 후 팝업 처리 (조건부)
+    try {
+      // 팝업이 열릴 가능성이 있는 액션을 수행합니다.
+      // 예를 들어, 로그인 후 자동으로 팝업이 뜨는 경우 특정 요소를 클릭하거나 기다립니다.
+
+      // 팝업이 열릴 때까지 기다립니다.
+      const popup = await page.waitForEvent("popup", { timeout: 5000 });
+      console.log("팝업이 열렸습니다.");
+
+      // 팝업 내 특정 요소 대기 및 클릭
+      await popup.waitForSelector('a[href*="나중에 변경"]', { timeout: 5000 });
+      await popup.click('a[href*="나중에 변경"]');
+      console.log("팝업 처리 완료");
+
+      // 팝업 내 다이얼로그 처리
+      popup.once("dialog", (dialog) => {
+        console.log(`Dialog message: ${dialog.message()}`);
+        dialog.dismiss().catch(() => {});
+      });
+    } catch (error) {
+      // 팝업이 나타나지 않았을 경우, 에러를 무시하고 계속 진행합니다.
+      console.log("팝업이 나타나지 않았습니다. 계속 진행합니다.");
+    }
+
     // 6. 마이페이지로 이동
     await page.goto("https://www.jobkorea.co.kr/User/Mypage", {
       waitUntil: "networkidle",
