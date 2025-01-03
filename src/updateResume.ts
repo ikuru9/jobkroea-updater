@@ -91,7 +91,7 @@ export async function updateResume(config: Config) {
     console.log("마이페이지로 이동 완료");
 
     // 7. 현재 경력 정보 클릭
-    await page.waitForSelector(".status a", { timeout: 10000 });
+    await page.waitForSelector(".status a", { timeout: 5000 });
     const [resumePopup] = await Promise.all([
       page.waitForEvent("popup"),
       page.click(".status a"),
@@ -100,9 +100,15 @@ export async function updateResume(config: Config) {
 
     // 8. 새 탭에서 "오늘날짜로 업데이트" 버튼 클릭
     if (resumePopup) {
-      await resumePopup.waitForSelector(".button-update", { timeout: 10000 });
+      await resumePopup.waitForSelector(".button-update", { timeout: 5000 });
       await resumePopup.click(".button-update");
       console.log('"오늘날짜로 업데이트" 버튼 클릭 완료');
+
+      // 다이얼로그 처리
+      resumePopup.once("dialog", (dialog) => {
+        console.log(`Dialog message: ${dialog.message()}`);
+        dialog.accept().catch(() => {});
+      });
 
       // 업데이트 완료 대기 (필요 시 추가적인 대기 로직 삽입)
       await resumePopup.waitForTimeout(3000); // 예: 3초 대기
