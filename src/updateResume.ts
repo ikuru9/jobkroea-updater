@@ -112,7 +112,12 @@ export async function updateResume(config: Config) {
 
     // 9. 성공 메시지 전송
     const now = new Date();
-    const message = `<blockquote>✅ 이력서 업데이트 완료!\n날짜: ${now.toLocaleDateString()} 시간: ${now.toLocaleTimeString()}</blockquote>`;
+    const message = `<blockquote>✅ 이력서 업데이트 완료!\n날짜: ${now.toLocaleDateString(
+      "ko-KR",
+      { timeZone: "Asia/Seoul" }
+    )} 시간: ${now.toLocaleTimeString("ko-KR", {
+      timeZone: "Asia/Seoul",
+    })}</blockquote>`;
     // sendTelegramMessage 함수 호출 시 parse_mode를 HTML로 설정해야 합니다
     await sendTelegramMessage(telegramToken, telegramChatId, message, "HTML");
     console.log("성공 메시지 전송 완료");
