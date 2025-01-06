@@ -111,15 +111,15 @@ export async function updateResume(config: Config) {
     console.error("에러 발생:", errorMessage);
 
     // 스크린샷 캡처
-    // try {
-    //   await page.screenshot({
-    //     path: `error-${Date.now()}.png`,
-    //     fullPage: true,
-    //   });
-    //   console.error("스크린샷 캡처 완료");
-    // } catch (screenshotError) {
-    //   console.error("스크린샷 캡처 실패:", screenshotError);
-    // }
+    try {
+      await page.screenshot({
+        path: `error-${Date.now()}.png`,
+        fullPage: true,
+      });
+      console.error("스크린샷 캡처 완료");
+    } catch (screenshotError) {
+      console.error("스크린샷 캡처 실패:", screenshotError);
+    }
   } finally {
     await browser.close();
     console.log("브라우저 닫기 완료");

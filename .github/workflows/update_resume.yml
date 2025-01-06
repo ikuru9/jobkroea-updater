@@ -27,7 +27,7 @@ jobs:
         run: pnpm install
 
       - name: Install Playwright browsers
-        run: npx playwright install
+        run: npx playwright install --with-deps
 
       - name: Build project
         run: pnpm tsc
@@ -38,4 +38,16 @@ jobs:
           JOBKOREA_PWD: ${{ secrets.JOBKOREA_PWD }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DEBUG: pw:api # Playwright 디버그 로그 활성화
         run: node dist/index.js
+
+      - name: Upload Playwright Artifacts on Failure
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-artifacts
+          path: |
+            error-*.png
+            videos/
+            trace.zip
+            playwright.log
