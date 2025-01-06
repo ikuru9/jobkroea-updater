@@ -79,7 +79,7 @@ export async function updateResume(config: Config) {
 
     // 8. 새 탭에서 "오늘날짜로 업데이트" 버튼 클릭
     if (resumePopup) {
-      await resumePopup.waitForSelector(".button-update", { timeout: 5000 });
+      await resumePopup.waitForSelector(".button-update", { timeout: 10000 });
       await resumePopup.click(".button-update");
       console.log('"오늘날짜로 업데이트" 버튼 클릭 완료');
 
