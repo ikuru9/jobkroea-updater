@@ -79,13 +79,12 @@ export async function updateResume(config: Config) {
     // 8. 새 탭에서 "오늘날짜로 업데이트" 버튼 클릭
     if (resumePopup) {
       await resumePopup.waitForSelector(".button-update", { timeout: 10000 });
+      await resumePopup.click(".button-update");
 
-      const [dialog] = await Promise.all([
-        resumePopup.waitForEvent("dialog", { timeout: 5000 }),
-        resumePopup.click(".button-update"),
-      ]);
-      console.log(`Dialog message: ${dialog.message()}`);
-      await dialog.accept().catch(() => {});
+      resumePopup.on("dialog", async (dialog) => {
+        console.log(`Dialog message: ${dialog.message()}`);
+        await dialog.accept().catch(() => {});
+      });
 
       // 업데이트 완료 대기
       await resumePopup.waitForTimeout(3000);
