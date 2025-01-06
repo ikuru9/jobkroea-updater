@@ -40,27 +40,6 @@ export async function updateResume(config: Config) {
     console.log("로그인 버튼 클릭 및 로그인 시도 완료");
 
     // 5. 로그인 후 팝업 처리 (조건부)
-    // const popups = context.pages();
-    // if (popups.length > 1) {
-    //   const popup = popups.find(
-    //     (p) => p.url() !== "https://www.jobkorea.co.kr/Login/"
-    //   );
-    //   if (popup) {
-    //     await popup.waitForSelector('a[href*="나중에 변경"]', {
-    //       timeout: 5000,
-    //     });
-    //     await popup.click('a[href*="나중에 변경"]');
-    //     console.log("팝업 처리 완료");
-
-    //     // 팝업 내 다이얼로그 처리
-    //     popup.once("dialog", (dialog) => {
-    //       console.log(`Dialog message: ${dialog.message()}`);
-    //       dialog.dismiss().catch(() => {});
-    //     });
-    //   }
-    // }
-
-    // 5. 로그인 후 팝업 처리 (조건부)
     try {
       // 팝업이 열릴 가능성이 있는 액션을 수행합니다.
       // 예를 들어, 로그인 후 자동으로 팝업이 뜨는 경우 특정 요소를 클릭하거나 기다립니다.
@@ -105,13 +84,14 @@ export async function updateResume(config: Config) {
       console.log('"오늘날짜로 업데이트" 버튼 클릭 완료');
 
       // 다이얼로그 처리
-      resumePopup.once("dialog", (dialog) => {
-        console.log(`Dialog message: ${dialog.message()}`);
-        dialog.accept().catch(() => {});
+      const dialog = await resumePopup.waitForEvent("dialog", {
+        timeout: 5000,
       });
+      console.log(`Dialog message: ${dialog.message()}`);
+      await dialog.accept().catch(() => {});
 
-      // 업데이트 완료 대기 (필요 시 추가적인 대기 로직 삽입)
-      await resumePopup.waitForTimeout(3000); // 예: 3초 대기
+      // 업데이트 완료 대기
+      await resumePopup.waitForTimeout(3000);
     } else {
       throw new Error("이력서 보기 페이지를 찾을 수 없습니다.");
     }
