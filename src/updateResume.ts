@@ -120,6 +120,7 @@ export async function updateResume(config: Config) {
     } catch (screenshotError) {
       console.error("스크린샷 캡처 실패:", screenshotError);
     }
+    process.exit(1);
   } finally {
     await browser.close();
     console.log("브라우저 닫기 완료");
