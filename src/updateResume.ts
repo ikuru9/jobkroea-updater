@@ -11,7 +11,7 @@ interface Config {
 
 export async function updateResume(config: Config) {
   const { jobkoreaId, jobkoreaPwd, telegramToken, telegramChatId } = config;
-  const browser: Browser = await chromium.launch({ headless: true });
+  const browser: Browser = await chromium.launch({ headless: false });
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
     // recordVideo: { dir: 'videos/' }, // 필요 시 비디오 녹화 활성화
