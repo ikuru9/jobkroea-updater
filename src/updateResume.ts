@@ -124,21 +124,17 @@ async function updateCareerInfo(page: Page) {
   console.log("경력 정보 클릭 완료, 새 팝업 열림");
 
   if (resumePopup) {
-    // "오늘날짜로 업데이트" 버튼 클릭 및 다이얼로그 처리
-    await resumePopup.waitForSelector(".button-update", { timeout: 15000 });
-    console.log("'오늘날짜로 업데이트' 버튼 찾음");
+    await resumePopup.waitForSelector(".button-update", { timeout: 10000 });
 
-    const [dialog] = await Promise.all([
-      resumePopup.waitForEvent("dialog", { timeout: 10000 }),
-      resumePopup.click(".button-update"),
-    ]);
-    console.log(`Update Dialog message: ${dialog.message()}`);
-    await dialog.accept();
-    console.log("업데이트 다이얼로그를 수락했습니다.");
+    resumePopup.on("dialog", async (dialog) => {
+      console.log(`Dialog message: ${dialog.message()}`);
+      await dialog.accept().catch(() => {});
+    });
 
-    // 업데이트 완료 대기
+    await resumePopup.click(".button-update");
+
     await resumePopup.waitForTimeout(5000);
-    console.log("이력서 업데이트 완료");
+    console.log('"오늘날짜로 업데이트" 버튼 클릭 및 다이얼로그 처리 완료');
   } else {
     throw new Error("이력서 보기 페이지를 찾을 수 없습니다.");
   }
