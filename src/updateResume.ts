@@ -121,36 +121,33 @@ async function updateCareerInfo(page: Page) {
     page.waitForEvent("popup", { timeout: 10000 }),
     page.click(".status a"),
   ]);
+
+  if (!resumePopup) {
+    throw new Error("이력서 팝업창을 열 수 없습니다.");
+  }
+
   await resumePopup.waitForLoadState();
   console.log("경력 정보 클릭 완료, 새 팝업 열림");
 
-  if (resumePopup) {
-    // 다이얼로그 핸들러 설정
-    resumePopup.on("dialog", async (dialog) => {
-      console.log(`${dialog.message()}`);
-      await dialog.accept();
-    });
+  // 다이얼로그 핸들러 설정
+  resumePopup.on("dialog", async (dialog) => {
+    console.log(`다이얼로그 메시지: ${dialog.message()}`);
+    await dialog.accept();
+  });
 
-    await resumePopup.waitForSelector(".button-update", { timeout: 10000 });
+  // 업데이트 버튼 대기 및 클릭
+  await resumePopup.waitForSelector(".button-update", { timeout: 10000 });
 
-    try {
-      console.log("업데이트 버튼 클릭 시도...");
-      await Promise.all([
-        resumePopup.waitForEvent("dialog", { timeout: 5000 }).catch(() => {
-          console.log("다이얼로그 대기 시간 초과");
-        }),
-        resumePopup.click(".button-update"),
-      ]);
-      console.log("업데이트 버튼 클릭 완료");
-    } catch (error) {
-      console.log("버튼 클릭 중 오류 발생:", error);
-    }
+  try {
+    console.log("업데이트 버튼 클릭 시도...");
+    await resumePopup.click(".button-update");
 
-    // 다이얼로그 처리 대기
-    await resumePopup.waitForTimeout(5000);
+    // 다이얼로그 처리 완료 대기
+    await resumePopup.waitForTimeout(3000);
     console.log("경력 정보 업데이트 프로세스 완료");
-  } else {
-    throw new Error("이력서 팝업창을 열 수 없습니다.");
+  } catch (error) {
+    console.log("버튼 클릭 중 오류 발생:", error);
+    throw error;
   }
 }
 
