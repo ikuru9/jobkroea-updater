@@ -79,6 +79,12 @@ export class JobKoreaService {
         timeout: TIMEOUTS.ELEMENT,
       });
 
+      const adModal = await this.page.$(".ab-iam-root");
+      if (adModal) {
+        await adModal.evaluate((node) => node.remove());
+        Logger.info("광고 모달 제거됨");
+      }
+
       const [resumePopup] = await Promise.all([
         this.page.waitForEvent("popup", { timeout: TIMEOUTS.POPUP }),
         this.page.click(SELECTORS.MYPAGE.STATUS_LINK),
