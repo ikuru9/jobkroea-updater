@@ -58,13 +58,10 @@ jobs:
           DEBUG: pw:api # Playwright 디버그 로그 활성화
         run: node dist/index.js
 
-      # - name: Upload Playwright Artifacts on Failure
-      #   if: failure()
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: playwright-artifacts
-      #     path: |
-      #       error-*.png
-      #       videos/
-      #       trace.zip
-      #       playwright.log
+      - name: Upload Playwright Artifacts on Failure
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-artifacts
+          path: |
+            error-*.png
