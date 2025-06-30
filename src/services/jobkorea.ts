@@ -152,7 +152,7 @@ export class JobKoreaService {
 
       const dialog = await dialogPromise;
 
-      const successMessage = "이력서 수정이 오늘날짜로 업데이트 되었습니다";
+      const successMessage = "업데이트 되었습니다";
       if (dialog.message().includes(successMessage)) {
         Logger.info(`성공 다이얼로그 확인: "${dialog.message()}"`);
         await dialog.accept();
