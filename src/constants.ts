@@ -21,3 +21,11 @@ export const TIMEOUTS = {
   POPUP: 10000,
   UPDATE_DELAY: 3000,
 } as const;
+
+export const RETRY_CONFIG = {
+  MAX_OPERATION_RETRIES: 3,
+  MAX_PROCESS_RETRIES: 3,
+  BASE_DELAY: 2000,
+  MAX_DELAY: 10000,
+  BACKOFF_MULTIPLIER: 2,
+} as const;
