@@ -49,13 +49,18 @@ export async function updateResume(config: Config): Promise<void> {
       }
     );
 
-    // 6. 성공 메시지 전송
-    await sendSuccessNotification(config.telegramToken, config.telegramChatId, retryCount);
+    // 6. 성공 메시지 전송과 브라우저 정리를 병렬로 처리
+    await Promise.allSettled([
+      sendSuccessNotification(config.telegramToken, config.telegramChatId, retryCount),
+      browserService.close(),
+    ]);
   } catch (error) {
-    await handleError(error, config.telegramToken, config.telegramChatId, retryCount);
+    // 에러 처리와 브라우저 정리를 병렬로 처리
+    await Promise.allSettled([
+      handleError(error, config.telegramToken, config.telegramChatId, retryCount),
+      browserService.close(),
+    ]);
     process.exit(1);
-  } finally {
-    await browserService.close();
   }
 }
 
