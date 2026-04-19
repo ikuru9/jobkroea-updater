@@ -1,9 +1,9 @@
+import { writeFile } from "fs/promises";
 import { Page } from "playwright";
 import { configManager } from "../config";
 import { Logger } from "../utils/logger";
 import { withRetry } from "../utils/retry";
 import { AuthenticationError, NavigationError, UpdateError } from "../types";
-import { AdaptiveTimeoutManager, withTimeoutMeasurement } from "../utils/adaptiveTimeout";
 
 export class JobKoreaService {
   private readonly urls = configManager.getUrls();
@@ -13,68 +13,129 @@ export class JobKoreaService {
 
   constructor(private readonly page: Page) {}
 
-  private async waitForAnySelector(selectors: readonly string[], options: { state?: "visible" | "attached" | "detached" | "hidden"; timeout?: number } = {}): Promise<string> {
+  private async waitForAnySelector(
+    selectors: readonly string[],
+    options: {
+      state?: "visible" | "attached" | "detached" | "hidden";
+      timeout?: number;
+    } = {}
+  ): Promise<string> {
     const { state = "visible" } = options;
-    const timeoutManager = AdaptiveTimeoutManager.getInstance();
-    const adaptiveTimeout = options.timeout || timeoutManager.getAdaptiveTimeout('element');
+    const timeout = options.timeout || this.timeouts.element;
 
-    return await withTimeoutMeasurement(
-      async () => {
-        for (const selector of selectors) {
-          try {
-            await this.page.waitForSelector(selector, {
-              state,
-              timeout: Math.floor(adaptiveTimeout / selectors.length)
-            });
-            Logger.info(`셀렉터 성공: ${selector}`);
-            return selector;
-          } catch (error) {
-            Logger.warning(`셀렉터 실패: ${selector}, 다음 셀렉터 시도 중...`);
-          }
+    if (state === "visible") {
+      await this.page.waitForSelector(selectors.join(", "), {
+        state,
+        timeout,
+      });
+
+      for (const selector of selectors) {
+        if (await this.page.locator(selector).first().isVisible()) {
+          Logger.info(`셀렉터 성공: ${selector}`);
+          return selector;
         }
+      }
 
-        throw new Error(`모든 셀렉터 실패: ${selectors.join(", ")}`);
-      },
-      'element',
-      adaptiveTimeout
-    );
+      throw new Error(`표시된 셀렉터를 찾지 못했습니다: ${selectors.join(", ")}`);
+    }
+
+    for (const selector of selectors) {
+      try {
+        await this.page.waitForSelector(selector, {
+          state,
+          timeout: Math.floor(timeout / selectors.length),
+        });
+        Logger.info(`셀렉터 성공: ${selector}`);
+        return selector;
+      } catch {
+        Logger.warning(`셀렉터 실패: ${selector}, 다음 셀렉터 시도 중...`);
+      }
+    }
+
+    throw new Error(`모든 셀렉터 실패: ${selectors.join(", ")}`);
   }
 
   async navigateToLoginPage(): Promise<void> {
-    const timeoutManager = AdaptiveTimeoutManager.getInstance();
-
     await withRetry(
       async () => {
-        await withTimeoutMeasurement(
-          async () => {
-            await this.page.goto(this.urls.login, {
-              waitUntil: "domcontentloaded",
-              timeout: timeoutManager.getAdaptiveTimeout('navigation'),
-            });
+        const response = await this.page.goto(this.urls.login, {
+          waitUntil: "commit",
+          timeout: this.timeouts.navigation,
+        });
 
-            await this.waitForAnySelector(this.selectors.login.idInput, {
-              state: "visible",
-            });
-
-            Logger.success("로그인 페이지로 성공적으로 이동 및 확인 완료");
+        Logger.info(
+          "로그인 페이지 최초 응답 수신",
+          {
+            requestedUrl: this.urls.login,
+            currentUrl: this.page.url(),
+            responseUrl: response?.url() ?? null,
+            status: response?.status() ?? null,
+            ok: response?.ok() ?? null,
           },
-          'navigation'
+          "navigation"
+        );
+
+        try {
+          await this.page.waitForLoadState("domcontentloaded", {
+            timeout: Math.floor(this.timeouts.navigation / 2),
+          });
+        } catch (error) {
+          Logger.warning(
+            "DOMContentLoaded 대기 시간 초과. 셀렉터 기준으로 계속 진행합니다.",
+            {
+              currentUrl: this.page.url(),
+              reason: error instanceof Error ? error.message : String(error),
+            },
+            "navigation"
+          );
+        }
+
+        await this.waitForAnySelector(this.selectors.login.idInput, {
+          state: "visible",
+          timeout: this.timeouts.navigation,
+        });
+
+        Logger.success(
+          "로그인 페이지로 성공적으로 이동 및 확인 완료",
+          { currentUrl: this.page.url() },
+          "navigation"
         );
       },
       {
         maxRetries: this.retryConfig.maxOperationRetries,
         operation: "로그인 페이지 이동",
       }
-    ).catch((error) => {
+    ).catch(async (originalError: Error) => {
+      const timestamp = Date.now();
+      const screenshotPath = `error-navigate-${timestamp}.png`;
+      const htmlPath = `error-navigate-${timestamp}.html`;
+
+      const results = await Promise.allSettled([
+        this.page.screenshot({ path: screenshotPath, fullPage: true }),
+        this.page.content().then((html) => writeFile(htmlPath, html, "utf-8")),
+      ]);
+
+      for (const [i, result] of results.entries()) {
+        const label = i === 0 ? "스크린샷" : "HTML";
+        const path = i === 0 ? screenshotPath : htmlPath;
+        if (result.status === "fulfilled") {
+          Logger.error(`로그인 페이지 이동 실패. ${label} 저장: ${path}`);
+        } else {
+          Logger.warning(`${label} 저장 실패: ${result.reason}`);
+        }
+      }
+
       throw new NavigationError(
-        `로그인 페이지로 이동하는데 실패했습니다. (${this.retryConfig.maxOperationRetries}번 재시도)`
+        `로그인 페이지로 이동하는데 실패했습니다. (${this.retryConfig.maxOperationRetries}번 재시도): ${originalError.message}`,
+        {
+          requestedUrl: this.urls.login,
+          currentUrl: this.page.url(),
+        }
       );
     });
   }
 
   async login(id: string, password: string): Promise<void> {
-    const timeoutManager = AdaptiveTimeoutManager.getInstance();
-
     await withRetry(
       async () => {
         const idSelector = await this.waitForAnySelector(this.selectors.login.idInput, {
@@ -91,19 +152,11 @@ export class JobKoreaService {
           state: "visible",
         });
 
-        await Promise.all([
-          withTimeoutMeasurement(
-            () => this.page.waitForNavigation({
-              waitUntil: "networkidle",
-              timeout: timeoutManager.getAdaptiveTimeout('navigation'),
-            }),
-            'navigation'
-          ),
-          this.page.click(loginButtonSelector),
-        ]);
+        await this.page.click(loginButtonSelector);
 
-        await this.waitForAnySelector(this.selectors.mypage.statusLink, {
-          state: "visible",
+        // 로그인 페이지에서 벗어났는지 URL 검증으로 성공 판정
+        await this.page.waitForURL(url => !url.pathname.includes("/Login/"), {
+          timeout: this.timeouts.navigation,
         });
 
         Logger.success("로그인 성공 및 페이지 전환 확인 완료");
@@ -112,20 +165,20 @@ export class JobKoreaService {
         maxRetries: this.retryConfig.maxOperationRetries,
         operation: "로그인",
       }
-    ).catch(async (error) => {
+    ).catch(async (originalError: Error) => {
       const screenshotPath = `error-login-${Date.now()}.png`;
 
       const [screenshotResult] = await Promise.allSettled([
         this.page.screenshot({ path: screenshotPath, fullPage: true }),
       ]);
 
-      if (screenshotResult.status === 'fulfilled') {
+      if (screenshotResult.status === "fulfilled") {
         Logger.error(`로그인 실패. 스크린샷 저장: ${screenshotPath}`);
       } else {
         Logger.error(`로그인 실패. 스크린샷 저장 실패: ${screenshotResult.reason}`);
       }
 
-      throw new AuthenticationError("로그인 실패");
+      throw new AuthenticationError(`로그인 실패: ${originalError.message}`);
     });
   }
 
@@ -147,7 +200,7 @@ export class JobKoreaService {
         await dialog.dismiss();
         Logger.success("팝업 처리 완료");
       }
-    } catch (error) {
+    } catch {
       Logger.warning("팝업이 나타나지 않았거나 처리할 수 없습니다.");
     }
   }
@@ -155,14 +208,17 @@ export class JobKoreaService {
   async navigateToMypage(): Promise<void> {
     await withRetry(
       async () => {
-        await this.page.goto(this.urls.mypage, { waitUntil: "networkidle" });
+        await this.page.goto(this.urls.mypage, {
+          waitUntil: "networkidle",
+          timeout: this.timeouts.navigation,
+        });
         Logger.success("마이페이지로 이동 완료");
       },
       {
         maxRetries: this.retryConfig.maxOperationRetries,
         operation: "마이페이지 이동",
       }
-    ).catch((error) => {
+    ).catch(() => {
       throw new NavigationError("마이페이지 이동 실패");
     });
   }
@@ -203,7 +259,7 @@ export class JobKoreaService {
                     console.log(`업데이트 버튼 셀렉터 성공: ${selector}`);
                     return selector;
                   }
-                } catch (error) {
+                } catch {
                   console.log(`업데이트 버튼 셀렉터 실패: ${selector}`);
                   continue;
                 }
