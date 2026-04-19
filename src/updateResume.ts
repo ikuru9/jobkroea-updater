@@ -65,7 +65,7 @@ export async function updateResume(config: Config): Promise<void> {
 
     // 6. 성공 메시지 전송과 브라우저 정리를 병렬로 처리
     const results = await Promise.allSettled([
-      sendSuccessNotification(config.telegramToken, config.telegramChatId, retryCount),
+      // sendSuccessNotification(config.telegramToken, config.telegramChatId, retryCount),
       browserService.close(),
     ]);
 
