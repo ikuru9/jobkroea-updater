@@ -7,6 +7,52 @@ export class BrowserService {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
 
+  private wirePageDiagnostics(page: Page): void {
+    page.on("domcontentloaded", () => {
+      Logger.info("메인 페이지 DOMContentLoaded", { url: page.url() }, "navigation");
+    });
+
+    page.on("load", () => {
+      Logger.info("메인 페이지 load 완료", { url: page.url() }, "navigation");
+    });
+
+    page.on("framenavigated", (frame) => {
+      if (frame === page.mainFrame()) {
+        Logger.info("메인 프레임 URL 변경", { url: frame.url() }, "navigation");
+      }
+    });
+
+    page.on("requestfailed", (request) => {
+      if (!request.isNavigationRequest()) {
+        return;
+      }
+
+      Logger.warning(
+        "네비게이션 요청 실패",
+        {
+          url: request.url(),
+          resourceType: request.resourceType(),
+          method: request.method(),
+          failure: request.failure()?.errorText,
+        },
+        "navigation"
+      );
+    });
+  }
+
+  private isKnownHostname(url: string, hostnames: string[]): boolean {
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+
+      return hostnames.some(
+        (knownHostname) =>
+          hostname === knownHostname || hostname.endsWith(`.${knownHostname}`)
+      );
+    } catch {
+      return false;
+    }
+  }
+
   async initialize(): Promise<void> {
     try {
       const browserConfig = configManager.getBrowserConfig();
@@ -66,9 +112,11 @@ export class BrowserService {
           // 소셜 미디어 차단
           if (
             browserConfig.blockResources.socialMedia &&
-            (url.includes("facebook.com") ||
-              url.includes("twitter.com") ||
-              url.includes("instagram.com"))
+            this.isKnownHostname(url, [
+              "facebook.com",
+              "twitter.com",
+              "instagram.com",
+            ])
           ) {
             shouldBlock = true;
           }
@@ -91,6 +139,9 @@ export class BrowserService {
       }
 
       this.page = await this.context.newPage();
+      this.page.setDefaultNavigationTimeout(configManager.getTimeouts().navigation);
+      this.page.setDefaultTimeout(configManager.getTimeouts().element);
+      this.wirePageDiagnostics(this.page);
 
       Logger.info("브라우저 초기화 완료 (최적화 적용)");
     } catch (error) {
