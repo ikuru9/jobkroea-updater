@@ -14,7 +14,7 @@ concurrency:
 jobs:
   update-resume:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
@@ -56,13 +56,42 @@ jobs:
       - name: Build project
         run: pnpm tsc
 
+      - name: Probe JobKorea login endpoint
+        continue-on-error: true
+        run: |
+          curl --silent --show-error --location \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --retry 2 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --output /dev/null \
+            --write-out "http_code=%{http_code}\ntime_namelookup=%{time_namelookup}\ntime_connect=%{time_connect}\ntime_appconnect=%{time_appconnect}\ntime_starttransfer=%{time_starttransfer}\ntime_total=%{time_total}\nurl_effective=%{url_effective}\n" \
+            https://www.jobkorea.co.kr/Login/
+
       - name: Run update script
         env:
           JOBKOREA_ID: ${{ secrets.JOBKOREA_ID }}
           JOBKOREA_PWD: ${{ secrets.JOBKOREA_PWD }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NAVIGATION_TIMEOUT_MS: "30000"
+          MAX_OPERATION_RETRIES: "3"
+          MAX_PROCESS_RETRIES: "4"
+          LOGIN_NAVIGATION_RETRY_BASE_DELAY_MS: "30000"
+          LOGIN_NAVIGATION_RETRY_MAX_DELAY_MS: "120000"
         run: node dist/index.js
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jobkorea-failure-artifacts
+          path: |
+            error-*.png
+            error-*.html
+          if-no-files-found: ignore
+          retention-days: 7
 
   workflow-keepalive:
     if: github.event_name == 'schedule'

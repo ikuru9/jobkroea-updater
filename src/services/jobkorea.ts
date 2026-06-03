@@ -10,8 +10,17 @@ export class JobKoreaService {
   private readonly selectors = configManager.getSelectors();
   private readonly timeouts = configManager.getTimeouts();
   private readonly retryConfig = configManager.getRetryConfig();
+  private readonly loginNavigationRetryConfig =
+    configManager.getLoginNavigationRetryConfig();
 
   constructor(private readonly page: Page) {}
+
+  private shouldSkipNavigationArtifacts(error: Error): boolean {
+    return (
+      error.message.includes("page.goto: Timeout") &&
+      (this.page.url() === "about:blank" || this.page.url().startsWith("chrome-error://"))
+    );
+  }
 
   private async waitForAnySelector(
     selectors: readonly string[],
@@ -103,12 +112,35 @@ export class JobKoreaService {
       },
       {
         maxRetries: this.retryConfig.maxOperationRetries,
+        baseDelay: this.loginNavigationRetryConfig.baseDelay,
+        maxDelay: this.loginNavigationRetryConfig.maxDelay,
+        backoffMultiplier: this.loginNavigationRetryConfig.backoffMultiplier,
         operation: "로그인 페이지 이동",
       }
     ).catch(async (originalError: Error) => {
       const timestamp = Date.now();
       const screenshotPath = `error-navigate-${timestamp}.png`;
       const htmlPath = `error-navigate-${timestamp}.html`;
+
+      if (this.shouldSkipNavigationArtifacts(originalError)) {
+        Logger.warning(
+          "로그인 페이지 응답 미수신 상태라 스크린샷/HTML 저장을 생략합니다.",
+          {
+            requestedUrl: this.urls.login,
+            currentUrl: this.page.url(),
+            reason: originalError.message,
+          },
+          "navigation"
+        );
+
+        throw new NavigationError(
+          `로그인 페이지로 이동하는데 실패했습니다. (${this.retryConfig.maxOperationRetries}번 재시도): ${originalError.message}`,
+          {
+            requestedUrl: this.urls.login,
+            currentUrl: this.page.url(),
+          }
+        );
+      }
 
       const results = await Promise.allSettled([
         this.page.screenshot({ path: screenshotPath, fullPage: true }),
