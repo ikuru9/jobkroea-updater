@@ -57,6 +57,7 @@ jobs:
         run: pnpm tsc
 
       - name: Probe JobKorea login endpoint
+        id: jobkorea-probe
         continue-on-error: true
         run: |
           curl --silent --show-error --location \
@@ -69,7 +70,31 @@ jobs:
             --write-out "http_code=%{http_code}\ntime_namelookup=%{time_namelookup}\ntime_connect=%{time_connect}\ntime_appconnect=%{time_appconnect}\ntime_starttransfer=%{time_starttransfer}\ntime_total=%{time_total}\nurl_effective=%{url_effective}\n" \
             https://www.jobkorea.co.kr/Login/
 
+      - name: Notify JobKorea probe failure
+        if: steps.jobkorea-probe.outcome == 'failure'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          MESSAGE="$(cat <<EOF
+          ❌ 이력서 업데이트 최종 실패!
+          이유: GitHub Actions runner에서 JobKorea 로그인 페이지에 연결할 수 없습니다.
+          대상: https://www.jobkorea.co.kr/Login/
+          확인: ${RUN_URL}
+          시간: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S KST')
+          EOF
+          )"
+
+          curl --silent --show-error --fail \
+            --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" || echo "Telegram probe failure notification failed"
+
+          exit 1
+
       - name: Run update script
+        if: steps.jobkorea-probe.outcome == 'success'
         env:
           JOBKOREA_ID: ${{ secrets.JOBKOREA_ID }}
           JOBKOREA_PWD: ${{ secrets.JOBKOREA_PWD }}
