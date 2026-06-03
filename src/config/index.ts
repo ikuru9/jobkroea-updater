@@ -35,13 +35,6 @@ export interface AppConfig {
     backoffMultiplier: number;
   };
 
-  // 로그인 페이지 첫 진입은 외부 네트워크 지연이 잦아 별도 재시도 간격을 둔다.
-  loginNavigationRetry: {
-    baseDelay: number;
-    maxDelay: number;
-    backoffMultiplier: number;
-  };
-
   // 브라우저 설정
   browser: {
     headless: boolean;
@@ -118,12 +111,6 @@ export const defaultConfig: AppConfig = {
     backoffMultiplier: 2,
   },
 
-  loginNavigationRetry: {
-    baseDelay: 2000,
-    maxDelay: 10000,
-    backoffMultiplier: 2,
-  },
-
   browser: {
     headless: true,
     viewport: {
@@ -172,7 +159,6 @@ function loadEnvironmentOverrides(baseConfig: AppConfig): AppConfig {
     urls: { ...baseConfig.urls },
     timeouts: { ...baseConfig.timeouts },
     retry: { ...baseConfig.retry },
-    loginNavigationRetry: { ...baseConfig.loginNavigationRetry },
     browser: { ...baseConfig.browser },
     logging: { ...baseConfig.logging },
   };
@@ -253,28 +239,6 @@ function loadEnvironmentOverrides(baseConfig: AppConfig): AppConfig {
     config.retry.backoffMultiplier = retryBackoffMultiplier;
   }
 
-  const loginNavigationRetryBaseDelay = readPositiveInt(
-    "LOGIN_NAVIGATION_RETRY_BASE_DELAY_MS"
-  );
-  if (loginNavigationRetryBaseDelay) {
-    config.loginNavigationRetry.baseDelay = loginNavigationRetryBaseDelay;
-  }
-
-  const loginNavigationRetryMaxDelay = readPositiveInt(
-    "LOGIN_NAVIGATION_RETRY_MAX_DELAY_MS"
-  );
-  if (loginNavigationRetryMaxDelay) {
-    config.loginNavigationRetry.maxDelay = loginNavigationRetryMaxDelay;
-  }
-
-  const loginNavigationRetryBackoffMultiplier = readPositiveFloat(
-    "LOGIN_NAVIGATION_RETRY_BACKOFF_MULTIPLIER"
-  );
-  if (loginNavigationRetryBackoffMultiplier) {
-    config.loginNavigationRetry.backoffMultiplier =
-      loginNavigationRetryBackoffMultiplier;
-  }
-
   if (process.env.LOG_LEVEL && ["error", "warn", "info", "debug"].includes(process.env.LOG_LEVEL)) {
     config.logging.logLevel = process.env.LOG_LEVEL as "error" | "warn" | "info" | "debug";
   }
@@ -303,10 +267,6 @@ export const configManager = {
 
   getRetryConfig() {
     return appConfig.retry;
-  },
-
-  getLoginNavigationRetryConfig() {
-    return appConfig.loginNavigationRetry;
   },
 
   getBrowserConfig() {

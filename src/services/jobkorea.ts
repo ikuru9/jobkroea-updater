@@ -10,8 +10,6 @@ export class JobKoreaService {
   private readonly selectors = configManager.getSelectors();
   private readonly timeouts = configManager.getTimeouts();
   private readonly retryConfig = configManager.getRetryConfig();
-  private readonly loginNavigationRetryConfig =
-    configManager.getLoginNavigationRetryConfig();
 
   constructor(private readonly page: Page) {}
 
@@ -112,9 +110,6 @@ export class JobKoreaService {
       },
       {
         maxRetries: this.retryConfig.maxOperationRetries,
-        baseDelay: this.loginNavigationRetryConfig.baseDelay,
-        maxDelay: this.loginNavigationRetryConfig.maxDelay,
-        backoffMultiplier: this.loginNavigationRetryConfig.backoffMultiplier,
         operation: "로그인 페이지 이동",
       }
     ).catch(async (originalError: Error) => {
