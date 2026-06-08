@@ -14,7 +14,7 @@ concurrency:
 jobs:
   update-resume:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
@@ -56,13 +56,77 @@ jobs:
       - name: Build project
         run: pnpm tsc
 
+      - name: Probe JobKorea login endpoint
+        id: jobkorea-probe
+        continue-on-error: true
+        run: |
+          curl --silent --show-error --location \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --retry 2 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --output /dev/null \
+            --write-out "http_code=%{http_code}\ntime_namelookup=%{time_namelookup}\ntime_connect=%{time_connect}\ntime_appconnect=%{time_appconnect}\ntime_starttransfer=%{time_starttransfer}\ntime_total=%{time_total}\nurl_effective=%{url_effective}\n" \
+            https://www.jobkorea.co.kr/Login/
+
+      - name: Notify JobKorea probe failure
+        if: steps.jobkorea-probe.outcome == 'failure'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          if [ "${RUN_ATTEMPT}" = "1" ]; then
+            MESSAGE="$(cat <<EOF
+          ⚠️ 이력서 업데이트 일시 실패
+          이유: GitHub Actions runner에서 JobKorea 로그인 페이지에 연결할 수 없습니다.
+          조치: 새 runner로 자동 재시도 예정입니다. (최대 1회)
+          대상: https://www.jobkorea.co.kr/Login/
+          확인: ${RUN_URL}
+          시간: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S KST')
+          EOF
+          )"
+          else
+            MESSAGE="$(cat <<EOF
+          ❌ 이력서 업데이트 최종 실패!
+          이유: GitHub Actions runner에서 JobKorea 로그인 페이지에 연결할 수 없습니다.
+          재시도: 자동 재시도 후에도 연결 실패
+          대상: https://www.jobkorea.co.kr/Login/
+          확인: ${RUN_URL}
+          시간: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S KST')
+          EOF
+          )"
+          fi
+
+          curl --silent --show-error --fail \
+            --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" || echo "Telegram probe failure notification failed"
+
+          exit 1
+
       - name: Run update script
+        if: steps.jobkorea-probe.outcome == 'success'
         env:
           JOBKOREA_ID: ${{ secrets.JOBKOREA_ID }}
           JOBKOREA_PWD: ${{ secrets.JOBKOREA_PWD }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NAVIGATION_TIMEOUT_MS: "30000"
         run: node dist/index.js
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jobkorea-failure-artifacts
+          path: |
+            error-*.png
+            error-*.html
+          if-no-files-found: ignore
+          retention-days: 7
 
   workflow-keepalive:
     if: github.event_name == 'schedule'

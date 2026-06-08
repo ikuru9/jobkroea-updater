@@ -157,9 +157,26 @@ function loadEnvironmentOverrides(baseConfig: AppConfig): AppConfig {
   const config: AppConfig = {
     ...baseConfig,
     urls: { ...baseConfig.urls },
+    timeouts: { ...baseConfig.timeouts },
     retry: { ...baseConfig.retry },
     browser: { ...baseConfig.browser },
     logging: { ...baseConfig.logging },
+  };
+
+  const readPositiveInt = (name: string): number | undefined => {
+    const value = process.env[name];
+    if (!value) return undefined;
+
+    const parsed = parseInt(value, 10);
+    return !isNaN(parsed) && parsed > 0 ? parsed : undefined;
+  };
+
+  const readPositiveFloat = (name: string): number | undefined => {
+    const value = process.env[name];
+    if (!value) return undefined;
+
+    const parsed = Number(value);
+    return !isNaN(parsed) && parsed > 0 ? parsed : undefined;
   };
 
   if (process.env.JOBKOREA_LOGIN_URL) {
@@ -174,12 +191,52 @@ function loadEnvironmentOverrides(baseConfig: AppConfig): AppConfig {
     config.browser.headless = process.env.BROWSER_HEADLESS === "true";
   }
 
+  const navigationTimeout = readPositiveInt("NAVIGATION_TIMEOUT_MS");
+  if (navigationTimeout) {
+    config.timeouts.navigation = navigationTimeout;
+  }
+
+  const elementTimeout = readPositiveInt("ELEMENT_TIMEOUT_MS");
+  if (elementTimeout) {
+    config.timeouts.element = elementTimeout;
+  }
+
+  const popupTimeout = readPositiveInt("POPUP_TIMEOUT_MS");
+  if (popupTimeout) {
+    config.timeouts.popup = popupTimeout;
+  }
+
   if (process.env.MAX_RETRIES) {
-    const maxRetries = parseInt(process.env.MAX_RETRIES, 10);
-    if (!isNaN(maxRetries) && maxRetries > 0) {
+    const maxRetries = readPositiveInt("MAX_RETRIES");
+    if (maxRetries) {
       config.retry.maxOperationRetries = maxRetries;
       config.retry.maxProcessRetries = maxRetries;
     }
+  }
+
+  const maxOperationRetries = readPositiveInt("MAX_OPERATION_RETRIES");
+  if (maxOperationRetries) {
+    config.retry.maxOperationRetries = maxOperationRetries;
+  }
+
+  const maxProcessRetries = readPositiveInt("MAX_PROCESS_RETRIES");
+  if (maxProcessRetries) {
+    config.retry.maxProcessRetries = maxProcessRetries;
+  }
+
+  const retryBaseDelay = readPositiveInt("RETRY_BASE_DELAY_MS");
+  if (retryBaseDelay) {
+    config.retry.baseDelay = retryBaseDelay;
+  }
+
+  const retryMaxDelay = readPositiveInt("RETRY_MAX_DELAY_MS");
+  if (retryMaxDelay) {
+    config.retry.maxDelay = retryMaxDelay;
+  }
+
+  const retryBackoffMultiplier = readPositiveFloat("RETRY_BACKOFF_MULTIPLIER");
+  if (retryBackoffMultiplier) {
+    config.retry.backoffMultiplier = retryBackoffMultiplier;
   }
 
   if (process.env.LOG_LEVEL && ["error", "warn", "info", "debug"].includes(process.env.LOG_LEVEL)) {
