@@ -78,11 +78,29 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
-          if [ "${RUN_ATTEMPT}" = "1" ]; then
+          MAX_ATTEMPTS=4
+          MAX_RERUNS=3
+
+          if [ "${RUN_ATTEMPT}" -lt "${MAX_ATTEMPTS}" ]; then
+            NEXT_ATTEMPT=$((RUN_ATTEMPT + 1))
+            case "${RUN_ATTEMPT}" in
+              1)
+                RETRY_DELAY_MINUTES=3
+                ;;
+              2)
+                RETRY_DELAY_MINUTES=8
+                ;;
+              3)
+                RETRY_DELAY_MINUTES=15
+                ;;
+              *)
+                RETRY_DELAY_MINUTES=0
+                ;;
+            esac
             MESSAGE="$(cat <<EOF
           ⚠️ 이력서 업데이트 일시 실패
           이유: GitHub Actions runner에서 JobKorea 로그인 페이지에 연결할 수 없습니다.
-          조치: 새 runner로 자동 재시도 예정입니다. (최대 1회)
+          조치: 약 ${RETRY_DELAY_MINUTES}분 후 ${NEXT_ATTEMPT}/${MAX_ATTEMPTS}번째 시도로 자동 재시도 예정입니다. (최대 ${MAX_RERUNS}회)
           대상: https://www.jobkorea.co.kr/Login/
           확인: ${RUN_URL}
           시간: $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S KST')
